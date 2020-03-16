@@ -38,16 +38,15 @@ class MyCallBack(tf.keras.callbacks.Callback):
         self.epoch_num += 1
 
     def on_epoch_end(self, epoch, logs=None):
+        print(logs)
         self.train_loss_logs.append(logs['loss'])
-        self.train_accuracy_logs.append(logs['accuracy']*100)
+        self.train_accuracy_logs.append(logs['categorical_accuracy']*100)
         self.val_loss_logs.append(logs['val_loss'])
-        self.val_accuracy_logs.append(logs['val_accuracy']*100)
+        self.val_accuracy_logs.append(logs['val_categorical_accuracy']*100)
 
     def on_train_batch_end(self, batch, logs=None):
         print('\t epoch :: ', self.epoch_num)
 
-    def on_test_end(self, logs=None):
-        print('test logs :: ', logs)
 
 if __name__ == '__main__':
 
@@ -56,12 +55,13 @@ if __name__ == '__main__':
     data['c'] = pd.Categorical(data['c'])
     data['c'] = data.c.cat.codes
     # label = data.pop('c')
+
     x_train = np.array([np.array(z).T for z in [[y] for y in [x for x in data['n_audio'].values]]])
     in_shape = x_train.shape[1:]
     y_train = tf.keras.utils.to_categorical(np.array(data['c']))
     print('ds ready')
 
-    data = train.read_data('./dataset/valid_prepared/', 256)
+    data = train.read_data('./dataset/valid_prepared/', 512)
     data['c'] = pd.Categorical(data['c'])
     data['c'] = data.c.cat.codes
     # label = data.pop('c')
@@ -71,26 +71,50 @@ if __name__ == '__main__':
     print('val ds ready')
     model = train.cnn1d(in_shape=in_shape)
     callback_logs = MyCallBack()
-    # log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
-    model.fit(x_train, y_train, epochs=5, verbose=1, batch_size=64, validation_data=(x_valid, y_valid),
-              callbacks=[callback_logs], shuffle=True)
+
+    model.fit(x=x_train, y=y_train, epochs=30, batch_size=64, verbose=1, shuffle=True,
+              validation_data=(x_valid, y_valid), callbacks=[callback_logs])
 
     print('model train finish')
-    data = train.read_data('./dataset/test_prepared/', 1000)
+    data = train.read_data('./dataset/test_prepared/', 1024)
     data['c'] = pd.Categorical(data['c'])
     data['c'] = data.c.cat.codes
 
     x_test = np.array([np.array(z).T for z in [[y] for y in [x for x in data['n_audio'].values]]])
     y_test = tf.keras.utils.to_categorical(np.array(data['c']))
+    test_ds = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(64)
     print('test ds ready')
-    model.evaluate(x=x_test, y=y_test, batch_size=64)
-    model.save(filepath='./trained_model/200315_00.h5')
+    model.evaluate(test_ds)
+    model.save(filepath='./trained_model/cnn1d.h5')
+    plt.subplot(1, 2, 1)
     plt.plot(callback_logs.train_loss_logs, linestyle=':')
-    plt.plot(callback_logs.train_accuracy_logs)
-    plt.plot(callback_logs.val_loss_logs, linestyle=':')
+    plt.plot(callback_logs.val_loss_logs)
+    plt.legend(['train_loss', 'val_loss'])
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.subplot(1, 2, 2)
+    plt.plot(callback_logs.train_accuracy_logs, linestyle=':')
     plt.plot(callback_logs.val_accuracy_logs)
     plt.xlabel('epoch')
     plt.ylabel('%')
-    plt.legend(['train_loss', 'train_accuracy', 'val_loss', 'val_accuracy'])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    plt.legend(['train_accuracy', 'val_accuracy'])
     plt.show()

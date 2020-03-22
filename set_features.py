@@ -97,35 +97,3 @@ if __name__ == '__main__':
                 process_list[j].close()
                 print('process ', j, ' end')
         f += 1
-        # if i < len(fpaths):
-        #     name = save_at + st.folder_path[i]
-        #     p_02 = Process(target=st.set_feature, args=(name, fpaths[i], fnames[i]))
-        #     p_02.start()
-        #     print('p_02 start')
-        # i += 1
-
-        # if i < len(fpaths):
-        #     name = save_at + st.folder_path[i]
-        #     p_03 = Process(target=st.set_feature, args=(name, fpaths[i], fnames[i]))
-        #     p_03.start()
-        #     print('p_03 start')
-        # i += 1
-        #
-        # if i < len(fpaths):
-        #     name = save_at + st.folder_path[i]
-        #     p_04 = Process(target=st.set_feature, args=(name, fpaths[i], fnames[i]))
-        #     p_04.start()
-        #     print('p_04 start')
-        # i += 1
-        # p_01.join()
-        # p_01.close()
-        # print('p_01 join')
-        # p_02.join()
-        # print('p_02 join')
-        # p_03.join()
-        # print('p_03 join')
-        # p_04.join()
-        # print('p_04 join')
-    # p_02.close()
-    # p_03.close()
-    # p_04.close()

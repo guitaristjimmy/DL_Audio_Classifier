@@ -2,6 +2,8 @@
 
 Audio Classification Using Deep Learning
 
+Dataset : Speech Commands v0.01
+
 The purpose of this study is twofold.
 
 1. Evaluate the model learning ability by characteristics that can be extracted from audio.

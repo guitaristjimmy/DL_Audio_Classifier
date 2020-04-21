@@ -15,8 +15,6 @@ This is because both the speed and accuracy of the model are high.
 
 No significant differences were found in CNN, RNN, CRNN in model comparison, which could not be trusted as physical GPU errors occurred frequently in the learning process of RNN and CRNN.
 
-My PC Spec::
-
-GPU : GTX 1060 (6GB)
-CPU : i7-7700
+GPU : GTX 1060 (6GB) /
+CPU : i7-7700 /
 RAM : 40GB

@@ -5,6 +5,7 @@ import numpy as np
 from train import Train
 from tensorflow import keras
 from sklearn import metrics
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 
 def plot_confusion_matrix(cm, classes, normalize=False, cmap=plt.cm.Blues):
@@ -25,10 +26,7 @@ def plot_confusion_matrix(cm, classes, normalize=False, cmap=plt.cm.Blues):
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
     print(cm)
-
     plt.imshow(cm, interpolation='nearest', cmap=cmap, aspect=0.5)
-    plt.title('confuse_metrics')
-    plt.colorbar()
     tick_marks = np.arange(len(classes))
     plt.xticks(tick_marks, classes, rotation=45)
     plt.yticks(tick_marks, classes)
@@ -47,14 +45,15 @@ def plot_confusion_matrix(cm, classes, normalize=False, cmap=plt.cm.Blues):
 
 if __name__ == '__main__':
     t = Train()
-    model = keras.models.load_model('./trained_model/rnn_stft.h5')
-
-    features = ['stft', 'c']
+    model_path = './trained_model/sContrast/crnn_sContrast.h5'
+    model = keras.models.load_model(model_path)
+    print(model.summary())
+    features = ['sContrast', 'c']
     t.read_data('./dataset/test_ds/', cols=features)
 
     y_test = np.array(t.data.pop('c'))
     print(y_test.shape)
-    x_test = np.array([y for y in [x for x in t.data.pop('stft').values]])
+    x_test = np.array([y for y in [x for x in t.data.pop(features[0]).values]])
 
     # shape = x_test.shape
     # x_test = x_test.reshape((shape[0], shape[1], 1))
@@ -67,9 +66,9 @@ if __name__ == '__main__':
     cm = tf.math.confusion_matrix(y_test, y_pred, num_classes=30)
     print(cm)
 
-    plt.figure(figsize=(20,20))
+    fig = plt.figure(figsize=(20, 20))
     plot_confusion_matrix(cm=cm, classes=t.class_names, normalize=True)
-    plt.show()
+    plt.savefig(fname=model_path[:-3]+'_cm.png', bbox_inches='tight', dpi=300)
 
     f1_score = metrics.f1_score(y_test, y_pred, average='weighted', zero_division=0)
-    print(f1_score)
+    print(round(f1_score, 4))

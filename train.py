@@ -1,31 +1,33 @@
-import datetime
 import pandas as pd
 import os
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 from models import Models
+from tqdm import tqdm
+# import time
 
 
 class Train(Models):
-    def __init__(self):
-        pass
 
-    def read_data(self, path, nums):
+    def __init__(self):
+        self.data = pd.DataFrame()
+        self.class_names = []
+
+    def read_data(self, path, frac=1, cols=['c']):
+        self.data = pd.DataFrame(columns=cols)
+        d_cols = list(set(['n_audio', 'sCentroid', 'sContrast', 'stft', 'mel_spectrogram', 'mfcc', 'c'])-set(cols))
         paths = os.listdir(path=path)
-        df = pd.DataFrame()
-        for p in paths:
-            class_id = p.split('/')[-1].replace('.pkl', '')
-            if len(df.index) == 0:
-                df = pd.read_pickle(path+p)
-                df['c'] = class_id
-                df = df.iloc[:nums]
-            else:
-                temp = pd.read_pickle(path+p)
-                temp['c'] = class_id
-                temp = temp.iloc[:nums]
-                df = df.append(temp)
-        return df
+        for p in tqdm(paths):
+            self.class_names.append(p[:-4])
+            df = pd.read_pickle(path+p)
+            df = df.drop(columns=d_cols)
+            if frac != 1:
+                df = df.sample(frac=frac)
+            self.data = self.data.append(df)
+        self.data['c'] = pd.Categorical(self.data['c'])
+        self.data['c'] = self.data.c.cat.codes
+        print('read_data finish')
 
 
 class MyCallBack(tf.keras.callbacks.Callback):
@@ -38,83 +40,67 @@ class MyCallBack(tf.keras.callbacks.Callback):
         self.epoch_num += 1
 
     def on_epoch_end(self, epoch, logs=None):
-        print(logs)
+        # print(logs)
         self.train_loss_logs.append(logs['loss'])
         self.train_accuracy_logs.append(logs['categorical_accuracy']*100)
         self.val_loss_logs.append(logs['val_loss'])
         self.val_accuracy_logs.append(logs['val_categorical_accuracy']*100)
 
-    def on_train_batch_end(self, batch, logs=None):
-        print('\t epoch :: ', self.epoch_num)
+    # def on_train_batch_end(self, batch, logs=None):
+
 
 
 if __name__ == '__main__':
 
     train = Train()
-    data = train.read_data('./dataset/train_prepared/', 1024)
-    data['c'] = pd.Categorical(data['c'])
-    data['c'] = data.c.cat.codes
-    # label = data.pop('c')
+    my_callback = MyCallBack()
+    features = ['mfcc', 'c']
+    f = features[0]
+    train.read_data('./dataset/valid_ds/', cols=features)
+    y_valid = tf.keras.utils.to_categorical(np.array(train.data.pop('c')))
+    print('y_valid ready')
+    x_valid = np.array([y for y in [x for x in train.data.pop(f).values]])
+    in_shape = x_valid.shape[1:]
+    print('valid_ds ready ', x_valid.shape)
 
-    x_train = np.array([np.array(z).T for z in [[y] for y in [x for x in data['n_audio'].values]]])
-    in_shape = x_train.shape[1:]
-    y_train = tf.keras.utils.to_categorical(np.array(data['c']))
-    print('ds ready')
+    model = train.crnn(in_shape=in_shape)
+    print(model.summary())
 
-    data = train.read_data('./dataset/valid_prepared/', 512)
-    data['c'] = pd.Categorical(data['c'])
-    data['c'] = data.c.cat.codes
-    # label = data.pop('c')
-    x_valid = np.array([np.array(z).T for z in [[y] for y in [x for x in data['n_audio'].values]]])
-    y_valid = tf.keras.utils.to_categorical(np.array(data['c']))
-    data = False
-    print('val ds ready')
-    model = train.cnn1d(in_shape=in_shape)
-    callback_logs = MyCallBack()
+    batch = 256
 
-    model.fit(x=x_train, y=y_train, epochs=30, batch_size=64, verbose=1, shuffle=True,
-              validation_data=(x_valid, y_valid), callbacks=[callback_logs])
+    for _ in range(0, 10):
+        train.read_data('./dataset/train_ds/', frac=0.75, cols=features)
+
+        y_train = tf.keras.utils.to_categorical(np.array(train.data.pop('c')))
+
+        x_train = np.array([y for y in [x for x in train.data.pop(f).values]])
+
+        model.fit(x=x_train, y=y_train, epochs=20, batch_size=batch, verbose=2, shuffle=True,
+                  validation_data=(x_valid, y_valid), callbacks=[my_callback])
 
     print('model train finish')
-    data = train.read_data('./dataset/test_prepared/', 1024)
-    data['c'] = pd.Categorical(data['c'])
-    data['c'] = data.c.cat.codes
+    train.read_data('./dataset/test_ds/', cols=features)
 
-    x_test = np.array([np.array(z).T for z in [[y] for y in [x for x in data['n_audio'].values]]])
-    y_test = tf.keras.utils.to_categorical(np.array(data['c']))
-    test_ds = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(64)
+    y_test = tf.keras.utils.to_categorical(np.array(train.data.pop('c')))
+
+    x_test = np.array([y for y in [x for x in train.data.pop(f).values]])
+    print(x_test.shape)
     print('test ds ready')
-    model.evaluate(test_ds)
-    model.save(filepath='./trained_model/cnn1d.h5')
+    model.evaluate(x=x_test, y=y_test, batch_size=batch)
+    model.save(filepath='./trained_model/mfcc/crnn_mfcc.h5')
+
+    # Plot -------------------------------------------------------------------------------------------------------------
     plt.subplot(1, 2, 1)
-    plt.plot(callback_logs.train_loss_logs, linestyle=':')
-    plt.plot(callback_logs.val_loss_logs)
+    plt.plot(my_callback.train_loss_logs, linestyle=':')
+    plt.plot(my_callback.val_loss_logs)
     plt.legend(['train_loss', 'val_loss'])
     plt.xlabel('epoch')
     plt.ylabel('loss')
     plt.subplot(1, 2, 2)
-    plt.plot(callback_logs.train_accuracy_logs, linestyle=':')
-    plt.plot(callback_logs.val_accuracy_logs)
+    plt.plot(my_callback.train_accuracy_logs, linestyle=':')
+    plt.plot(my_callback.val_accuracy_logs)
     plt.xlabel('epoch')
     plt.ylabel('%')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    plt.ylim((0, 100))
     plt.legend(['train_accuracy', 'val_accuracy'])
     plt.show()
